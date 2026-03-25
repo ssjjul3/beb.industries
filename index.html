@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BEB INDUSTRIES — Command Centre</title>
+  <style>
+    :root {
+      --green: #00ff41;
+      --dim: #00aa2a;
+      --dark: #0a0a0a;
+      --panel: #0d0d0d;
+      --border: #1a3a1a;
+      --red: #ff4444;
+      --amber: #ffaa00;
+      --blue: #00aaff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--dark);
+      color: var(--green);
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      height: 100vh;
+      overflow: hidden;
+      cursor: default;
+    }
+
+    /* Scanlines overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* CRT flicker */
+    @keyframes flicker { 0%,100%{opacity:1} 92%{opacity:0.97} 93%{opacity:1} }
+    body { animation: flicker 8s infinite; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes scroll-ticker { from{transform:translateX(100%)} to{transform:translateX(-100%)} }
+    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+    /* Layout */
+    #hq {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* Header */
+    #header {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--panel);
+    }
+    #header .logo {
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-shadow: 0 0 10px var(--green);
+    }
+    #header .status-row {
+      display: flex;
+      gap: 20px;
+      font-size: 11px;
+      color: var(--dim);
+    }
+    #header .status-row .live { color: var(--green); animation: pulse 2s infinite; }
+    #clock { font-size: 12px; letter-spacing: 2px; }
+
+    /* Main grid */
+    #main {
+      display: grid;
+      grid-template-columns: 280px 1fr 260px;
+      gap: 1px;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--panel);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-header {
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .panel-header .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    .panel-body { padding: 12px; overflow-y: auto; flex: 1; }
+
+    /* LEFT PANEL — Prices + Subagents */
+    #prices .price-item {
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    #prices .price-item:last-child { border-bottom: none; }
+    .price-label { font-size: 10px; color: var(--dim); letter-spacing: 2px; }
+    .price-value { font-size: 22px; font-weight: bold; letter-spacing: 1px; margin: 2px 0; }
+    .price-change { font-size: 11px; }
+    .price-change.up { color: var(--green); }
+    .price-change.down { color: var(--red); }
+
+    .sa-item {
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--green);
+    }
+    .sa-item.standby { border-left-color: var(--dim); }
+    .sa-id { font-size: 10px; color: var(--dim); letter-spacing: 2px; }
+    .sa-name { font-size: 12px; margin: 2px 0; }
+    .sa-status { font-size: 10px; }
+    .sa-status.active { color: var(--green); }
+    .sa-status.standby { color: var(--dim); }
+
+    /* CENTER PANEL — Chat */
+    #chat-panel {
+      display: flex;
+      flex-direction: column;
+    }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .msg {
+      max-width: 90%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      line-height: 1.5;
+      font-size: 12px;
+    }
+    .msg.user {
+      align-self: flex-end;
+      border-color: var(--green);
+      color: var(--green);
+      background: rgba(0,255,65,0.05);
+    }
+    .msg.agent {
+      align-self: flex-start;
+      border-color: var(--dim);
+      color: #ccc;
+    }
+    .msg.agent .agent-label {
+      font-size: 10px;
+      color: var(--green);
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+    .msg.system {
+      align-self: center;
+      border: none;
+      color: var(--dim);
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+    .typing-indicator {
+      display: none;
+      align-self: flex-start;
+      color: var(--dim);
+      font-size: 11px;
+      padding: 4px 8px;
+    }
+    .typing-indicator.visible { display: block; }
+    .typing-indicator::after {
+      content: '▮';
+      animation: blink 1s infinite;
+    }
+
+    #chat-input-area {
+      border-top: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    #chat-prompt { color: var(--dim); font-size: 12px; white-space: nowrap; padding-top: 6px; }
+    #chat-input {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--green);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 5px 8px;
+      outline: none;
+      caret-color: var(--green);
+    }
+    #chat-input:focus { border-color: var(--green); }
+    #chat-send {
+      background: transparent;
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 5px 12px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.1s;
+    }
+    #chat-send:hover { background: var(--green); color: var(--dark); }
+
+    /* RIGHT PANEL — Research */
+    .research-item {
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .research-item:hover { border-color: var(--green); }
+    .research-title { font-size: 11px; letter-spacing: 1px; margin-bottom: 4px; }
+    .research-meta { font-size: 10px; color: var(--dim); }
+    .research-status {
+      display: inline-block;
+      font-size: 9px;
+      padding: 1px 5px;
+      border: 1px solid;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+    .research-status.active { color: var(--green); border-color: var(--green); }
+    .research-status.queued { color: var(--amber); border-color: var(--amber); }
+    .research-status.complete { color: var(--blue); border-color: var(--blue); }
+
+    /* Ticker */
+    #ticker {
+      border-top: 1px solid var(--border);
+      padding: 5px 0;
+      overflow: hidden;
+      background: var(--panel);
+      flex-shrink: 0;
+    }
+    #ticker-inner {
+      display: inline-block;
+      white-space: nowrap;
+      animation: scroll-ticker 40s linear infinite;
+      font-size: 11px;
+      color: var(--dim);
+      letter-spacing: 2px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--dark); }
+    ::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* Loading spinner */
+    .loading { animation: blink 1s infinite; }
+  </style>
+</head>
+<body>
+
+<div id="hq">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="logo">▸ BEB INDUSTRIES ◂</div>
+    <div class="status-row">
+      <span class="live">● SYS ONLINE</span>
+      <span class="live">● NET CONNECTED</span>
+      <span class="live">● UPLINK ACTIVE</span>
+    </div>
+    <div id="clock">--:--:--</div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- LEFT: Prices + Subagents -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>MARKET FEED</span>
+        <div class="dot"></div>
+      </div>
+      <div class="panel-body" id="prices">
+        <div class="price-item">
+          <div class="price-label">BTC / USD</div>
+          <div class="price-value" id="btc-price"><span class="loading">LOADING</span></div>
+          <div class="price-change" id="btc-change">...</div>
+        </div>
+        <div class="price-item">
+          <div class="price-label">ETH / USD</div>
+          <div class="price-value" id="eth-price"><span class="loading">LOADING</span></div>
+          <div class="price-change" id="eth-change">...</div>
+        </div>
+        <div class="price-item">
+          <div class="price-label">SOL / USD</div>
+          <div class="price-value" id="sol-price"><span class="loading">LOADING</span></div>
+          <div class="price-change" id="sol-change">...</div>
+        </div>
+      </div>
+
+      <div class="panel-header" style="margin-top:1px">
+        <span>SUBAGENTS</span>
+        <div class="dot"></div>
+      </div>
+      <div class="panel-body" id="subagents-list">
+        <div class="sa-item standby"><div class="sa-id">SA-01</div><div class="sa-name loading">LOADING...</div><div class="sa-status standby">STANDBY</div></div>
+        <div class="sa-item standby"><div class="sa-id">SA-02</div><div class="sa-name loading">LOADING...</div><div class="sa-status standby">STANDBY</div></div>
+        <div class="sa-item standby"><div class="sa-id">SA-03</div><div class="sa-name loading">LOADING...</div><div class="sa-status standby">STANDBY</div></div>
+      </div>
+    </div>
+
+    <!-- CENTER: Chat -->
+    <div class="panel" id="chat-panel">
+      <div class="panel-header">
+        <span>💬 AGENT_ZERO — DIRECT LINE</span>
+        <div class="dot"></div>
+      </div>
+      <div id="chat-messages">
+        <div class="msg system">[ SECURE CHANNEL ESTABLISHED ]</div>
+        <div class="msg agent">
+          <div class="agent-label">👾 AGENT_ZERO</div>
+          Online. What do you need?
+        </div>
+      </div>
+      <div class="typing-indicator" id="typing">AGENT_ZERO IS PROCESSING </div>
+      <div id="chat-input-area">
+        <div id="chat-prompt">❯</div>
+        <input type="text" id="chat-input" placeholder="Enter command..." autocomplete="off" />
+        <button id="chat-send">SEND</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: Research -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>RESEARCH BOARD</span>
+        <div class="dot"></div>
+      </div>
+      <div class="panel-body" id="research-list">
+        <div class="research-item">
+          <div class="research-title">BTC HALVING CYCLE ANALYSIS</div>
+          <div class="research-meta">Loading...</div>
+          <div class="research-status active">ACTIVE</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TICKER -->
+  <div id="ticker">
+    <div id="ticker-inner">
+      ═══ BEB INDUSTRIES © 2026 ═══ AGENT_ZERO ONLINE ═══ CLICK OBJECTS TO INTERACT ═══ v3.0.0 ═══ HYPERLIQUID ═══ POLYMARKET ═══ SOLANA ═══ ALGORITHMIC TRADING ═══ RBI SYSTEM: RESEARCH → BACKTEST → INCUBATE ═══ BEB INDUSTRIES © 2026 ═══
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── CLOCK ───────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toUTCString().split(' ')[4] + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── PRICES (CoinGecko free API) ─────────────────────────────────────────────
+async function fetchPrices() {
+  try {
+    const res = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true'
+    );
+    const data = await res.json();
+
+    const coins = [
+      { id: 'bitcoin', priceEl: 'btc-price', changeEl: 'btc-change' },
+      { id: 'ethereum', priceEl: 'eth-price', changeEl: 'eth-change' },
+      { id: 'solana', priceEl: 'sol-price', changeEl: 'sol-change' },
+    ];
+
+    coins.forEach(({ id, priceEl, changeEl }) => {
+      const d = data[id];
+      if (!d) return;
+      const price = d.usd.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      const change = d.usd_24h_change?.toFixed(2);
+      const up = change >= 0;
+
+      document.getElementById(priceEl).textContent = `$${price}`;
+      const changeEl2 = document.getElementById(changeEl);
+      changeEl2.textContent = `${up ? '▲' : '▼'} ${Math.abs(change)}% (24h)`;
+      changeEl2.className = `price-change ${up ? 'up' : 'down'}`;
+    });
+  } catch (e) {
+    console.error('Price fetch failed:', e);
+  }
+}
+fetchPrices();
+setInterval(fetchPrices, 30000); // refresh every 30s
+
+// ─── SUBAGENTS ────────────────────────────────────────────────────────────────
+async function fetchSubagents() {
+  try {
+    const res = await fetch('/subagents');
+    const agents = await res.json();
+    const container = document.getElementById('subagents-list');
+    container.innerHTML = agents.map(a => `
+      <div class="sa-item ${a.status === 'ACTIVE' ? '' : 'standby'}">
+        <div class="sa-id">${a.id}</div>
+        <div class="sa-name">${a.name}</div>
+        <div class="sa-status ${a.status === 'ACTIVE' ? 'active' : 'standby'}">● ${a.status}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Subagents fetch failed:', e);
+  }
+}
+fetchSubagents();
+setInterval(fetchSubagents, 60000);
+
+// ─── RESEARCH ─────────────────────────────────────────────────────────────────
+async function fetchResearch() {
+  try {
+    const res = await fetch('/research');
+    const items = await res.json();
+    const container = document.getElementById('research-list');
+    container.innerHTML = items.map(item => `
+      <div class="research-item">
+        <div class="research-title">${item.title}</div>
+        <div class="research-meta">${item.updated ? new Date(item.updated).toLocaleDateString() : 'Pending'}</div>
+        <div class="research-status ${(item.status || 'queued').toLowerCase()}">${item.status || 'QUEUED'}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error('Research fetch failed:', e);
+  }
+}
+fetchResearch();
+setInterval(fetchResearch, 300000); // every 5 min
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+const typing = document.getElementById('typing');
+
+function addMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'agent') {
+    div.innerHTML = `<div class="agent-label">👾 AGENT_ZERO</div>${escapeHtml(text)}`;
+  } else if (role === 'user') {
+    div.textContent = text;
+  } else {
+    div.textContent = text;
+  }
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+async function sendMessage() {
+  const msg = chatInput.value.trim();
+  if (!msg) return;
+
+  chatInput.value = '';
+  chatSend.disabled = true;
+  addMessage('user', msg);
+
+  typing.classList.add('visible');
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg }),
+    });
+    const data = await res.json();
+    typing.classList.remove('visible');
+    addMessage('agent', data.reply || data.error || 'No response.');
+  } catch (e) {
+    typing.classList.remove('visible');
+    addMessage('system', `[ ERROR: ${e.message} ]`);
+  }
+
+  chatSend.disabled = false;
+  chatInput.focus();
+}
+
+chatSend.addEventListener('click', sendMessage);
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendMessage();
+});
+chatInput.focus();
+</script>
+
+</body>
+</html>
