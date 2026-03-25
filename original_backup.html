@@ -1431,9 +1431,9 @@ function openChat() {
   document.getElementById('chatOverlay').classList.add('open');
   if (!chatInitialized) {
     chatInitialized = true;
-    addChatMsg('danni', 'AGENT_ZERO 👾', 'Online. What do you need?');
+    addChatMsg('danni', 'DANNI', 'Good day, Sir. DANNI here — Chief Operations Officer at your service. How may I assist you today?');
     setTimeout(() => {
-      
+      addChatMsg('danni', 'DANNI', 'All systems are green. Portfolio performing within acceptable margins. The subagents are busy with their assigned tasks.');
     }, 800);
   }
   setTimeout(() => document.getElementById('chatInput').focus(), 300);
@@ -1456,36 +1456,17 @@ function addChatMsg(type, sender, text) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-async function sendMessage() {
+function sendMessage() {
   const input = document.getElementById('chatInput');
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
   addChatMsg('user', 'YOU', text);
-
-  // Show typing indicator
-  const typingId = 'typing-' + Date.now();
-  const msgs = document.getElementById('chatMessages');
-  const typingDiv = document.createElement('div');
-  typingDiv.className = 'chat-msg danni';
-  typingDiv.id = typingId;
-  typingDiv.innerHTML = '<div class="msg-sender">AGENT_ZERO 👾</div><span style="animation:blink 1s infinite;display:inline-block">PROCESSING ▮</span>';
-  msgs.appendChild(typingDiv);
-  msgs.scrollTop = msgs.scrollHeight;
-
-  try {
-    const res = await fetch('/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
-    });
-    const data = await res.json();
-    document.getElementById(typingId)?.remove();
-    addChatMsg('danni', 'AGENT_ZERO 👾', data.reply || data.error || 'No response.');
-  } catch (e) {
-    document.getElementById(typingId)?.remove();
-    addChatMsg('danni', 'AGENT_ZERO 👾', 'Connection error. Gateway may be offline.');
-  }
+  // Simulate typing delay
+  setTimeout(() => {
+    const resp = DANNI_RESPONSES[Math.floor(Math.random() * DANNI_RESPONSES.length)];
+    addChatMsg('danni', 'DANNI', resp);
+  }, 600 + Math.random() * 800);
 }
 
 // ═══════════════ SUBAGENT LOG ═══════════════
