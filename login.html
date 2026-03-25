@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BEB INDUSTRIES — AUTHENTICATE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a1a;
+      --green: #00ff88;
+      --dim: #00aa55;
+      --red: #ff3355;
+      --text: #c0ffee;
+      --border: #00ff88;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px);
+      pointer-events: none;
+      z-index: 999;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .logo-main {
+      font-size: 16px;
+      color: var(--green);
+      text-shadow: 0 0 20px var(--green);
+      letter-spacing: 4px;
+      line-height: 2;
+    }
+    .logo-sub {
+      font-size: 8px;
+      color: var(--dim);
+      letter-spacing: 3px;
+      margin-top: 8px;
+    }
+
+    .panel {
+      border: 2px solid var(--green);
+      padding: 30px;
+      position: relative;
+      background: rgba(0,255,136,0.03);
+    }
+    .panel::before {
+      content: '▸ SECURE ACCESS ◂';
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg);
+      padding: 0 12px;
+      font-size: 8px;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    .field {
+      margin-bottom: 24px;
+    }
+    .field label {
+      display: block;
+      font-size: 8px;
+      color: var(--dim);
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+    .field input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--dim);
+      color: var(--green);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      padding: 12px 10px;
+      outline: none;
+      caret-color: var(--green);
+      letter-spacing: 4px;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: var(--green); }
+    .field input::placeholder { color: var(--dim); letter-spacing: 2px; font-size: 8px; }
+
+    .btn {
+      width: 100%;
+      background: transparent;
+      border: 2px solid var(--green);
+      color: var(--green);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 14px;
+      cursor: pointer;
+      letter-spacing: 3px;
+      transition: all 0.1s;
+      position: relative;
+    }
+    .btn:hover { background: var(--green); color: var(--bg); }
+    .btn:active { transform: scale(0.98); }
+    .btn.loading { opacity: 0.6; cursor: not-allowed; }
+
+    .error {
+      display: none;
+      color: var(--red);
+      font-size: 8px;
+      letter-spacing: 2px;
+      text-align: center;
+      margin-top: 16px;
+      animation: shake 0.4s ease;
+    }
+    .error.visible { display: block; }
+
+    .cursor {
+      display: inline-block;
+      animation: blink 1s infinite;
+    }
+
+    .status-line {
+      text-align: center;
+      font-size: 7px;
+      color: var(--dim);
+      letter-spacing: 2px;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <div class="logo-main">BEB<br>INDUSTRIES</div>
+      <div class="logo-sub">COMMAND CENTRE v3.0</div>
+    </div>
+
+    <div class="panel">
+      <div class="field">
+        <label>ACCESS CODE</label>
+        <input
+          type="password"
+          id="password"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          autofocus
+        />
+      </div>
+      <button class="btn" id="loginBtn" onclick="doLogin()">
+        ▸ AUTHENTICATE ◂
+      </button>
+      <div class="error" id="error">⚠ ACCESS DENIED — INVALID CREDENTIALS</div>
+    </div>
+
+    <div class="status-line">
+      ENCRYPTED CHANNEL<span class="cursor">▮</span>
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById('password');
+    const btn = document.getElementById('loginBtn');
+    const errorEl = document.getElementById('error');
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doLogin();
+    });
+
+    async function doLogin() {
+      const password = input.value;
+      if (!password) return;
+
+      btn.classList.add('loading');
+      btn.textContent = '▸ AUTHENTICATING... ◂';
+      errorEl.classList.remove('visible');
+
+      try {
+        const res = await fetch('/_auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          btn.textContent = '▸ ACCESS GRANTED ◂';
+          btn.style.borderColor = 'var(--green)';
+          btn.style.background = 'var(--green)';
+          btn.style.color = 'var(--bg)';
+          setTimeout(() => window.location.href = '/', 500);
+        } else {
+          input.value = '';
+          errorEl.classList.add('visible');
+          btn.classList.remove('loading');
+          btn.textContent = '▸ AUTHENTICATE ◂';
+          input.focus();
+        }
+      } catch (e) {
+        errorEl.textContent = '⚠ CONNECTION ERROR — TRY AGAIN';
+        errorEl.classList.add('visible');
+        btn.classList.remove('loading');
+        btn.textContent = '▸ AUTHENTICATE ◂';
+      }
+    }
+  </script>
+</body>
+</html>
